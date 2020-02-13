@@ -8,12 +8,19 @@ Public Class Form1
     Public n1mmUDP As UdpClient
     Public AGIPAddress As String
     Dim oldradioname(2) As String
+    Public lastmessage(2) As String
+    Dim sendingtcp As Boolean = False
+    Public tcpsendtimer As System.Timers.Timer
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles Me.Load
         Dim s() As String = System.Environment.GetCommandLineArgs()
 
         oldradioname(1) = ""
         oldradioname(2) = ""
+        lastmessage(1) = ""
+        lastmessage(2) = ""
+        tcpsendtimer = New Timers.Timer(5000)
+        AddHandler tcpsendtimer.Elapsed, New Timers.ElapsedEventHandler(AddressOf TimerElapsed)
 
         If s.Length > 1 Then
             AGIPAddress = s(1)
@@ -129,13 +136,27 @@ Public Class Form1
                 Exit Sub
         End Select
 
-        SendTCP("!000a!00cc80!" & radioNr.ToString & ";" & index.ToString)
+        Dim lastmsg As String
+        lastmsg = "!000a!00cc80!" & radioNr.ToString & ";" & index.ToString
+
+        If radioNr = 1 Then
+            lastmessage(1) = lastmsg
+        Else
+            lastmessage(2) = lastmsg
+        End If
+
+        If Not sendingtcp Then
+            tcpsendtimer.Stop()
+            SendTCP(lastmsg)
+            tcpsendtimer.Enabled = True
+        End If
 
         n1mmUDP.BeginReceive(AddressOf HandleUDPMessage, n1mmUDP)
     End Sub
 
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
         If sender.Text.ToString = "Start" Then
+            tcpsendtimer.Enabled = True
             N1MMtoAG()
             Button1.Text = "Stop"
         Else
@@ -152,6 +173,8 @@ Public Class Form1
         Dim port As Int32 = 9007
         Dim client As TcpClient
         Dim lostcomm As New LostComms
+
+        sendingtcp = True
         ' Translate the passed message into ASCII and store it as a Byte array. 
         Dim data As [Byte]() = System.Text.Encoding.ASCII.GetBytes(message)
 
@@ -168,7 +191,22 @@ Public Class Form1
         Catch ex As Exception
             lostcomm.ShowDialog()
         End Try
+        sendingtcp = False
+    End Sub
 
+    Private Sub TimerElapsed(sender As Object, e As EventArgs)
+        tcpsendtimer.Stop()
+        If sendingtcp Then
+            tcpsendtimer.Enabled = True
+            Exit Sub
+        End If
+        If lastmessage(1) <> "" Then
+            SendTCP(lastmessage(1))
+        End If
+        If lastmessage(2) <> "" Then
+            SendTCP(lastmessage(2))
+        End If
+        tcpsendtimer.Enabled = True
     End Sub
 
     'Private Sub Button2_Click(sender As Object, e As EventArgs)
