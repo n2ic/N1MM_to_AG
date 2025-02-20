@@ -19,7 +19,8 @@ Public Class Form1
         oldradioname(2) = ""
         lastmessage(1) = ""
         lastmessage(2) = ""
-        tcpsendtimer = New Timers.Timer(5000)
+        'tcpsendtimer = New Timers.Timer(5000)
+        tcpsendtimer = New Timers.Timer(1000)
         AddHandler tcpsendtimer.Elapsed, New Timers.ElapsedEventHandler(AddressOf TimerElapsed)
 
         If s.Length > 1 Then
@@ -179,9 +180,21 @@ Public Class Form1
         Dim data As [Byte]() = System.Text.Encoding.ASCII.GetBytes(message)
 
         Try
-            client = New TcpClient(AGIPAddress, port)
+            'client = New TcpClient(AGIPAddress, port)
+            client = New TcpClient()
+            If Not My.Computer.Network.Ping(AGIPAddress, 1000) Then
+                Debug.Print("Timeout 1000")
+                If Not My.Computer.Network.Ping(AGIPAddress, 50) Then
+                    lostcomm.ShowDialog()
+                    Exit Sub
+                End If
+            End If
+            If Not client.ConnectAsync(AGIPAddress, port).Wait(4000) Then
+                lostcomm.ShowDialog()
+                Exit Sub
+            End If
+
             ' Get a client stream for reading and writing. 
-            '  Stream stream = client.GetStream(); 
             Dim stream As NetworkStream = client.GetStream()
 
             ' Send the message to the connected TcpServer. 
